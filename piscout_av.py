@@ -27,6 +27,12 @@ BASE_FONT_SIZE = 16
 MIN_FONT_SIZE = 10
 LINE_SPACING = 2  # Extra pixels between lines.
 
+# Boot splash, shown for SPLASH_SECONDS before the Loading screen.
+# Discovery runs in the background meanwhile.
+SPLASH_TEXT = "HAVE YOU TRIED TURNING IT OFF AND ON AGAIN?"
+SPLASH_SECONDS = 5
+SPLASH_MAX_FONT_SIZE = 28
+
 # Path to system font used for rendering text.
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
@@ -536,7 +542,7 @@ def render_image(data):
         f"SW: {data[0]}",
         f"IP: {data[1]}",
         f"PORT: {data[2]}",
-        f"VLAN: {data[3]}",
+        f"VLAN: {data[3]}  VOICE: {data[4]}",
         f"MODEL: {data[5]}",
     ]
 
@@ -547,6 +553,39 @@ def render_image(data):
         font = fit_font(draw, line, max_width)
         draw.text((LEFT_MARGIN, y), line, font=font, fill=0)
         y += font.size + LINE_SPACING
+
+    return image.rotate(180)
+
+def render_splash(text=SPLASH_TEXT):
+    """
+    Render the boot splash: text word-wrapped and centred, in the largest
+    font size that fits the panel.
+    """
+    image = Image.new("1", (DISPLAY_WIDTH, DISPLAY_HEIGHT), 255)
+    draw = ImageDraw.Draw(image)
+    max_width = DISPLAY_WIDTH - (LEFT_MARGIN * 2)
+    max_height = DISPLAY_HEIGHT - (TOP_MARGIN * 2)
+    words = text.split()
+
+    for size in range(SPLASH_MAX_FONT_SIZE, MIN_FONT_SIZE - 1, -1):
+        font = ImageFont.truetype(FONT_PATH, size)
+        lines = []
+        for word in words:
+            candidate = f"{lines[-1]} {word}" if lines else word
+            if lines and draw.textlength(candidate, font=font) <= max_width:
+                lines[-1] = candidate
+            else:
+                lines.append(word)
+        line_height = size + LINE_SPACING
+        too_wide = any(draw.textlength(l, font=font) > max_width for l in lines)
+        if not too_wide and line_height * len(lines) <= max_height:
+            break
+
+    y = (DISPLAY_HEIGHT - line_height * len(lines)) // 2
+    for line in lines:
+        x = (DISPLAY_WIDTH - draw.textlength(line, font=font)) // 2
+        draw.text((x, y), line, font=font, fill=0)
+        y += line_height
 
     return image.rotate(180)
 
@@ -569,7 +608,10 @@ def render_diag(diag):
 
     switch_mac, pi_ip, gw_ip, gw_ping_ok, net_ok, dns_ok = diag
 
-    gw_label = f"GW: {gw_ip}"
+    if gw_ip == "N/A":
+        gw_label = "GW: N/A"
+    else:
+        gw_label = f"GW: {gw_ip} {'PASS' if gw_ping_ok else 'FAIL'}"
 
     lines = [
         f"SW MAC: {switch_mac}",
@@ -696,8 +738,9 @@ def main():
     last_dot_update_mono = time.monotonic()
 
     try:
-        panel.full(render_loading(0))
-        log.info("Displayed boot screen (Loading)")
+        panel.full(render_splash())
+        splash_until_mono = time.monotonic() + SPLASH_SECONDS
+        log.info("Displayed boot splash")
 
         threading.Thread(target=data_collector, daemon=True).start()
         threading.Thread(target=diagnostics_collector, daemon=True).start()
@@ -716,6 +759,10 @@ def main():
 
             # ---- LOADING PHASE ----
             if not first_ready_displayed:
+
+                # Hold the splash for its full time, even if a neighbor shows up early.
+                if now_mono < splash_until_mono:
+                    continue
 
                 if is_data_ready(snap):
                     # One deliberate full refresh: a clean screen that also signals "found".

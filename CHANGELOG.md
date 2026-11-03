@@ -2,6 +2,15 @@
 
 Changes in PiScout-AV relative to upstream [RaspberryFluke](https://github.com/MKWB/RaspberryFluke) at commit `d5c78db`.
 
+## 2026-11-03 – Boot splash, voice VLAN and gateway ping on screen
+
+### Added
+- Boot splash: **HAVE YOU TRIED TURNING IT OFF AND ON AGAIN?** It's word-wrapped in the largest bold font that fits and shown for 5 s (`SPLASH_TEXT`, `SPLASH_SECONDS`). Discovery runs in the background meanwhile.
+
+### Changed
+- Screen 1: the VLAN line now also shows the voice VLAN (`VLAN: 1  VOICE: N/A`).
+- Screen 2: the `GW:` line now shows `PASS`/`FAIL` for the gateway ping.
+
 ## 2026-11-03 – Diagnostics test the LAN only
 
 ### Fixed

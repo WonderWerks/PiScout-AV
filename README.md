@@ -17,7 +17,7 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's 
 | `SW:` | Switch name. Shows `N/A` if the switch has no system name set. |
 | `IP:` | Switch management IP |
 | `PORT:` | Switch port, shortened (`GigabitEthernet1/0/24` → `Gi1/0/24`) |
-| `VLAN:` | Access (native) VLAN |
+| `VLAN:` / `VOICE:` | Access (native) VLAN and voice VLAN (`N/A` if the switch doesn't advertise one) |
 | `MODEL:` | Switch model, taken from the switch's system description |
 
 **Screen 2 – Diagnostics**, refreshed every 60 s and immediately when the switch info changes:
@@ -26,14 +26,14 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's 
 |---|---|
 | `SW MAC:` | Switch chassis MAC |
 | `MY IP:` | The unit's DHCP address on the wired port, or `NO DHCP` |
-| `GW:` | The wired network's gateway |
+| `GW:` | The wired network's gateway, with `PASS`/`FAIL` for a ping to it |
 | `WAN:` | `PASS`/`FAIL`: ping to 8.8.8.8 |
 | `DNS:` | `PASS`/`FAIL`: resolves google.com using the wired network's own DNS server |
 
 **Everything on the screen describes the wired port.** Even when the unit is also on Wi-Fi, the checks are forced out of `eth0`, so Wi-Fi can never make a dead port look healthy.
 
 **Behavior:**
-- Animated `Loading...` screen while it waits for the switch. It shows `NO NEIGHBOR` if nothing is heard within 3 minutes.
+- Boot splash, **HAVE YOU TRIED TURNING IT OFF AND ON AGAIN?**, for 5 s. Then an animated `Loading...` screen while it waits for the switch. It shows `NO NEIGHBOR` if nothing is heard within 3 minutes.
 - Switches between the two screens every 20 s. Screen changes don't flash; a full refresh happens about every 15 minutes to clear ghosting.
 - **Listen-only:** it never sends LLDP/CDP. The only traffic it creates is normal DHCP, ping and DNS.
 - Starts at boot as a hardened systemd service.
@@ -158,6 +158,7 @@ The settings are at the top of `piscout_av.py`. Restart the service after changi
 | `IFACE` | `eth0` | Wired port to test |
 | `NO_NEIGHBOR_TIMEOUT_SECONDS` | `180` | Wait before showing `NO NEIGHBOR` |
 | `SCREEN_ROTATION_INTERVAL_SECONDS` | `20` | Time on each screen |
+| `SPLASH_TEXT`, `SPLASH_SECONDS` | see file, `5` | Boot splash message and how long it shows |
 | `DIAG_POLL_INTERVAL_SECONDS` | `60` | How often the diagnostics re-run |
 | `PARTIAL_REFRESH_LIMIT` | `45` | Screen changes between full (flashing) refreshes |
 
@@ -215,9 +216,7 @@ CHANGELOG.md          changes relative to upstream RaspberryFluke
 - [ ] Web UI over Wi-Fi and Ethernet: full neighbor details, diagnostics, Pi health, Save-to-log and Reset buttons
 - [ ] Wi-Fi hotspot fallback when no known Wi-Fi is in range, with an off switch
 - [ ] Passive listeners: IGMP querier, STP root bridge, PTP grandmaster, mDNS/Dante devices
-- [ ] Show the voice VLAN and gateway ping on screen again
 - [ ] 3D-printed lid for the PoE-ETH-USB-HUB-BOX that clears the display
-- [ ] Startup animation starring ¯\\\_(ツ)\_/¯
 
 ---
 
