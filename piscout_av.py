@@ -229,8 +229,10 @@ def parse_lldp_keyvalue():
 
 def extract_switch_hostname(kv):
     sw = kv.get(f"lldp.{IFACE}.chassis.name", "")
-    sw = clean_hostname(sw) if sw else "N/A"
-    return sw
+    if sw:
+        return clean_hostname(sw)
+    # No System Name TLV: fall back to the chassis MAC so the line isn't blank.
+    return kv.get(f"lldp.{IFACE}.chassis.mac", "") or "N/A"
 
 def extract_switch_ip(kv):
     candidates = [
@@ -334,14 +336,15 @@ def get_switch_info():
 
 def is_data_ready(data):
     """
-    Determine whether the essential neighbor information is populated.
+    Determine whether a neighbor has been learned.
+
+    A port is the minimum. Switch name and VLAN are optional because some
+    switches (e.g. Netgear M4250 without a system name set) don't advertise them.
     """
-    sw, _sw_ip, port, vlan, _voice, _model = data
-    if sw in ("Loading", "N/A", ""):
+    sw, _sw_ip, port, _vlan, _voice, _model = data
+    if sw == "Loading":
         return False
     if port in ("...", "N/A", ""):
-        return False
-    if vlan in ("...", "N/A", ""):
         return False
     return True
 

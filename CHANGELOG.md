@@ -2,6 +2,12 @@
 
 Changes in PiScout-AV relative to upstream [RaspberryFluke](https://github.com/MKWB/RaspberryFluke) at commit `d5c78db`.
 
+## 2026-11-03 – Neighbor detection without a switch name
+
+### Fixed
+- A neighbor now counts as found once a **port** is learned. Before, it also needed a switch name and a VLAN, so a switch that doesn't send a System Name TLV (seen on a Netgear M4250) showed `NO NEIGHBOR` even though its port, VLAN, IP and model were all received.
+- `SW:` falls back to the chassis MAC when no system name is advertised.
+
 ## 2026-11-03 – Rename, V4 display driver, no-flash screen changes
 
 ### Changed
