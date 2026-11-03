@@ -92,6 +92,20 @@ sudo nmcli --ask device wifi connect "<your-SSID>"
 
 ### 2. Update and install packages
 
+First check the clock. The Pi has no clock battery, and if its time is behind, `apt` rejects Debian's package signatures as `Not live until ...`.
+
+```bash
+timedatectl | grep -E 'Local|synchronized'
+```
+
+If it shows `synchronized: no` or the wrong date, set the clock from a web server's response:
+
+```bash
+sudo date -s "$(curl -sI http://deb.debian.org | grep -i '^date:' | cut -d' ' -f2-)"
+```
+
+Then update and install:
+
 ```bash
 sudo apt update && sudo apt full-upgrade -y
 ```
@@ -138,7 +152,7 @@ Print the **public** half:
 cat ~/.ssh/piscout_deploy.pub
 ```
 
-On GitHub, go to the repo → **Settings → Deploy keys → Add deploy key**. Paste the line printed above, name it after the unit, and leave **Allow write access unticked**. The Pi can then read this one repo and nothing else.
+On GitHub, go to the repo → **Settings → Deploy keys → Add deploy key**. Paste the **whole line** printed above, from `ssh-ed25519` through `piscout-av-deploy`. GitHub rejects the key as "invalid" if the `ssh-ed25519` prefix is missing. Name the key after the unit, and leave **Allow write access unticked**. The Pi can then read this one repo and nothing else.
 
 Trust GitHub's host key:
 
