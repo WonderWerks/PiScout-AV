@@ -277,6 +277,7 @@ CHANGELOG.md             what changed relative to upstream RaspberryFluke
 - [ ] Wi-Fi hotspot fallback when no known Wi-Fi is in range (with an off switch)
 - [ ] Passive listeners: IGMP querier, STP root bridge, PTP grandmaster, mDNS/Dante devices
 - [ ] 3D-printed lid for the PoE-ETH-USB-HUB-BOX that clears the display
+- [ ] Startup animation starring ¯\\\_(ツ)\_/¯
 
 ---
 

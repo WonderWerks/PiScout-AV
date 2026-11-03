@@ -111,6 +111,9 @@ current_diag = None
 # Lock protects access to current_diag between threads.
 diag_lock = threading.Lock()
 
+# Event used to wake the diagnostics thread early (neighbor changed or shutdown).
+diag_wakeup = threading.Event()
+
 # ============================================================
 # -------------------- UTILITY FUNCTIONS ---------------------
 # ============================================================
@@ -229,10 +232,8 @@ def parse_lldp_keyvalue():
 
 def extract_switch_hostname(kv):
     sw = kv.get(f"lldp.{IFACE}.chassis.name", "")
-    if sw:
-        return clean_hostname(sw)
-    # No System Name TLV: fall back to the chassis MAC so the line isn't blank.
-    return kv.get(f"lldp.{IFACE}.chassis.mac", "") or "N/A"
+    sw = clean_hostname(sw) if sw else "N/A"
+    return sw
 
 def extract_switch_ip(kv):
     candidates = [
@@ -447,6 +448,8 @@ def data_collector():
             if new_data != current_data:
                 current_data = new_data
                 data_event.set()
+                # Re-run diagnostics now so SW MAC etc. match the new neighbor.
+                diag_wakeup.set()
 
         if last != new_data:
             log.info("Data update: SW=%s SWIP=%s PORT=%s VLAN=%s VOICE=%s MODEL=%s", *new_data)
@@ -457,16 +460,13 @@ def data_collector():
 def diagnostics_collector():
     """
     Periodically collect diagnostic data (pings, DNS, IP).
-    Runs independently of the LLDP collector.
-    Only starts collecting after a neighbor is seen (to get switch MAC).
+    Runs every DIAG_POLL_INTERVAL_SECONDS, and immediately whenever the
+    LLDP collector sees the neighbor change (so the switch MAC isn't stale
+    from a run that happened before the first LLDP packet arrived).
     """
     global current_diag
 
     while not shutdown_event.is_set():
-        # Wait until we have a valid neighbor to get the switch MAC.
-        with data_lock:
-            snap = current_data
-
         kv = parse_lldp_keyvalue()
         switch_mac = extract_switch_mac(kv)
 
@@ -478,11 +478,9 @@ def diagnostics_collector():
         # Signal display loop that diag data changed.
         data_event.set()
 
-        # Wait for next poll cycle.
-        for _ in range(DIAG_POLL_INTERVAL_SECONDS):
-            if shutdown_event.is_set():
-                break
-            time.sleep(1)
+        # Wait for next poll cycle, or an early wake-up from the LLDP collector.
+        diag_wakeup.wait(timeout=DIAG_POLL_INTERVAL_SECONDS)
+        diag_wakeup.clear()
 
 # ============================================================
 # -------------------- DISPLAY RENDERING ---------------------
@@ -588,6 +586,7 @@ def handle_shutdown(signum, frame):
     log.info("Shutdown requested (signal %s)", signum)
     shutdown_event.set()
     data_event.set()
+    diag_wakeup.set()
 
 # ============================================================
 # -------------------- E-PAPER PANEL -------------------------

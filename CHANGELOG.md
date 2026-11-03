@@ -6,7 +6,9 @@ Changes in PiScout-AV relative to upstream [RaspberryFluke](https://github.com/M
 
 ### Fixed
 - A neighbor now counts as found once a **port** is learned. Before, it also needed a switch name and a VLAN, so a switch that doesn't send a System Name TLV (seen on a Netgear M4250) showed `NO NEIGHBOR` even though its port, VLAN, IP and model were all received.
-- `SW:` falls back to the chassis MAC when no system name is advertised.
+- `SW:` shows `N/A` when no system name is advertised. The MAC stays on the diagnostics screen's `SW MAC:` line.
+- `SW MAC` on the diagnostics screen showed `N/A` for up to a minute after boot, because the first diagnostics run happened before the first LLDP packet arrived. Diagnostics now re-run as soon as the neighbor info changes. This also refreshes them right away when you move to another port.
+- An M4250 with no system name set was seen briefly advertising its serial number as the name.
 
 ## 2026-11-03 – Rename, V4 display driver, no-flash screen changes
 
