@@ -23,7 +23,7 @@ ProtectKernelTunables=true
 LockPersonality=true
 RestrictSUIDSGID=true
 RemoveIPC=true
-RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 
 [Install]
 WantedBy=multi-user.target
