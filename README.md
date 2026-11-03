@@ -70,9 +70,25 @@ In **Raspberry Pi Imager**, choose *Raspberry Pi Zero 2 W* → *Raspberry Pi OS 
 - hostname: `piscout-av`
 - a username and password
 - **Enable SSH**
-- Wi-Fi, which is optional but handy for managing the unit while `eth0` is plugged into the port under test
+- **Wi-Fi, plus the Wi-Fi country.** Setup downloads packages and the code, so the Pi needs internet access. Wi-Fi is the easiest way to give it that, especially if the wired network you set up on has no internet. It's also handy later for managing the unit while `eth0` is plugged into the port under test.
+
+> **Pi Zero 2 W is 2.4 GHz only.** If you use a phone hotspot, set it to 2.4 GHz. On an iPhone, turn on *Maximize Compatibility*.
 
 Boot the Pi and SSH in, using `ssh <user>@piscout-av.local` or the Pi's IP address.
+
+Forgot Wi-Fi in Imager? You can add it from the Pi instead of reimaging. Change `US` to your two-letter country code if needed. The connect command asks for the Wi-Fi password.
+
+```bash
+sudo raspi-config nonint do_wifi_country US
+```
+
+```bash
+sudo rfkill unblock wifi; sudo nmcli radio wifi on
+```
+
+```bash
+sudo nmcli --ask device wifi connect "<your-SSID>"
+```
 
 ### 2. Update and install packages
 
@@ -216,6 +232,9 @@ sudo systemctl restart piscout-av.service
 
 | Symptom | Check |
 |---|---|
+| `apt update` fails with `Temporary failure resolving` | No internet or DNS on the active network. Connect Wi-Fi (see step 1). |
+| `apt update` fails with `Not live until <date>` | The Pi's clock is behind, because it has no clock battery. Check `timedatectl`. If NTP can't reach the internet, set the clock from a web server's response: `sudo date -s "$(curl -sI http://deb.debian.org \| grep -i '^date:' \| cut -d' ' -f2-)"` |
+| `nmcli` says `No network with SSID ... found` | Set the Wi-Fi country (step 1) and make sure the network is 2.4 GHz. |
 | Stuck on `Loading...` / `NO NEIGHBOR` | Run `sudo lldpctl`. If it shows nothing, the switch isn't sending LLDP/CDP on that port, or `lldpd` isn't running (`systemctl status lldpd`). |
 | `IP: N/A` on screen 1 | The switch isn't advertising a management address TLV. This is common and harmless. |
 | Blank screen, service crashing | Run `journalctl -u piscout-av.service -n 50`. Check that SPI is enabled (`ls /dev/spidev0.0`) and that the packages in step 2 are installed. |
