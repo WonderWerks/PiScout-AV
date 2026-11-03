@@ -1,5 +1,5 @@
 [Unit]
-Description=RaspberryFluke LLDP/CDP E-Paper Display
+Description=PiScout-AV LLDP/CDP E-Paper Display
 After=network.target lldpd.service
 Wants=lldpd.service
 
@@ -7,9 +7,9 @@ Wants=lldpd.service
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/raspberryfluke
-Environment=PYTHONPATH=/opt/raspberryfluke
-ExecStart=/usr/bin/python3 /opt/raspberryfluke/raspberryfluke.py
+WorkingDirectory=/opt/piscout-av
+Environment=PYTHONPATH=/opt/piscout-av
+ExecStart=/usr/bin/python3 /opt/piscout-av/piscout_av.py
 Restart=on-failure
 RestartSec=3
 

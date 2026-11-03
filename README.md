@@ -35,14 +35,13 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's 
 - Switches between the two screens every 20 s once a neighbor is found.
 - Shows `NO NEIGHBOR` if nothing is heard within 180 s. Some CDP environments take 45–90 s.
 - Redraws immediately if the VLAN or voice VLAN changes, at most once every 10 s, to protect the panel.
-- Forces a full refresh after 8 partial refreshes to prevent ghosting.
+- Screen changes use partial refresh, so there is no black/white flash. A full refresh happens on the first neighbor and then roughly every 15 minutes to clear ghosting.
 - Listens only and never transmits LLDP/CDP: `lldpd` runs in receive-only mode.
 - Starts at boot as a hardened systemd service.
 
 **Known gaps:** these are on the roadmap below.
 - The voice VLAN is still collected and still triggers a redraw when it changes, but it is no longer displayed. `MODEL` took its place.
 - The gateway ping result is collected but not displayed.
-- Changing screens does a full refresh, so the display flashes black/white each time.
 
 ---
 
@@ -51,9 +50,11 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's 
 | Part | Notes |
 |---|---|
 | Raspberry Pi Zero 2 W | With a 40-pin male GPIO header soldered on |
-| Waveshare 2.13" e-Paper HAT, **V3** (250×122) | The code uses the `epd2in13_V3` driver. The original project lists the HAT+ (SKU 27467). |
-| Power | A PoE splitter/HAT, or a USB power bank. The original project uses the Waveshare PoE Ethernet / USB HUB BOX (SKU 20895). |
+| Waveshare **2.13" e-Paper HAT+** (250×122, **V4**) | Uses the `epd2in13_V4` driver. Check the version sticker on the back of the board. |
+| Waveshare **PoE-ETH-USB-HUB-BOX** | Case plus a PoE/Ethernet/USB hub for the Pi Zero. The stock lid doesn't fit over the display; a 3D-printed lid is on the roadmap. |
 | microSD card | 8 GB or larger |
+
+A USB power bank also works when the port has no PoE.
 
 ---
 
@@ -61,17 +62,17 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's 
 
 The target is **Raspberry Pi OS Lite, 64-bit, Debian 13 "trixie"**.
 
-> **Status:** the reference unit currently runs the *desktop* edition of trixie. These Lite steps have not yet been tested end to end on a fresh card. The package list adds `python3-spidev`, `python3-gpiozero` and `fonts-dejavu-core`, which the driver and the script need and which the desktop edition may already include.
+> **Status:** being validated with a ground-up rebuild on a fresh card. This note will be removed once that rebuild passes.
 
 ### 1. Flash the card
 
 In **Raspberry Pi Imager**, choose *Raspberry Pi Zero 2 W* → *Raspberry Pi OS Lite (64-bit)*. Then open the OS customisation settings and set:
-- a hostname
+- hostname: `piscout-av`
 - a username and password
 - **Enable SSH**
 - Wi-Fi, which is optional but handy for managing the unit while `eth0` is plugged into the port under test
 
-Boot the Pi and SSH in.
+Boot the Pi and SSH in, using `ssh <user>@piscout-av.local` or the Pi's IP address.
 
 ### 2. Update and install packages
 
@@ -105,55 +106,93 @@ sudo systemctl restart lldpd
 
 `-r` means receive only (never transmit). `-c` enables CDP for Cisco switches.
 
-### 5. Get the code into `/opt/raspberryfluke`
+### 5. Give the Pi read access to the repo (deploy key)
 
-The install path and service name are still `raspberryfluke`, inherited from the original project.
+Skip this step if the repo is public.
 
-**If the repo is public**, clone it on the Pi:
+Create a key on the Pi. It has no passphrase, so the Pi can pull on its own.
 
 ```bash
-sudo git clone https://github.com/WonderWerks/PiScout-AV.git /opt/raspberryfluke
+ssh-keygen -t ed25519 -f ~/.ssh/piscout_deploy -N "" -C piscout-av-deploy
 ```
 
-**If the repo is private**, copy it from a PC that already has it cloned. Run this on the PC:
+Print the **public** half:
 
 ```bash
-scp -r PiScout-AV <user>@<pi-address>:~/
+cat ~/.ssh/piscout_deploy.pub
 ```
 
-Then on the Pi:
+On GitHub, go to the repo → **Settings → Deploy keys → Add deploy key**. Paste the line printed above, name it after the unit, and leave **Allow write access unticked**. The Pi can then read this one repo and nothing else.
+
+Trust GitHub's host key:
 
 ```bash
-sudo mv ~/PiScout-AV /opt/raspberryfluke && sudo chown -R root:root /opt/raspberryfluke
+ssh-keyscan github.com >> ~/.ssh/known_hosts
 ```
 
-### 6. Install and start the service
+### 6. Clone into `/opt/piscout-av`
+
+The folder belongs to your user, so later updates don't need `sudo`.
 
 ```bash
-sudo cp /opt/raspberryfluke/raspberryfluke.service /etc/systemd/system/
+sudo mkdir -p /opt/piscout-av && sudo chown $USER: /opt/piscout-av
+```
+
+Private repo (uses the deploy key, which git remembers for future pulls):
+
+```bash
+git clone -c core.sshCommand="ssh -i ~/.ssh/piscout_deploy" git@github.com:WonderWerks/PiScout-AV.git /opt/piscout-av
+```
+
+Public repo:
+
+```bash
+git clone https://github.com/WonderWerks/PiScout-AV.git /opt/piscout-av
+```
+
+### 7. Install and start the service
+
+```bash
+sudo cp /opt/piscout-av/piscout-av.service /etc/systemd/system/
 ```
 
 ```bash
-sudo systemctl daemon-reload && sudo systemctl enable --now raspberryfluke.service
+sudo systemctl daemon-reload && sudo systemctl enable --now piscout-av.service
 ```
 
-### 7. Verify
+### 8. Verify
 
 ```bash
-systemctl status raspberryfluke.service
+systemctl status piscout-av.service
 ```
 
 ```bash
-journalctl -u raspberryfluke.service -f
+journalctl -u piscout-av.service -f
 ```
 
 The log prints a `Data update: SW=... PORT=... VLAN=...` line once a neighbor is heard, and a `Diag: ...` line every 60 s.
 
 ---
 
+## Updating
+
+Make changes on your PC, commit and push to GitHub. Then pull on the Pi:
+
+```bash
+git -C /opt/piscout-av pull && sudo systemctl restart piscout-av.service
+```
+
+If `piscout-av.service` itself changed, reinstall it before restarting:
+
+```bash
+sudo cp /opt/piscout-av/piscout-av.service /etc/systemd/system/ && sudo systemctl daemon-reload
+```
+
+---
+
 ## Configuration
 
-All settings are constants at the top of `raspberryfluke.py`:
+All settings are constants at the top of `piscout_av.py`:
 
 | Constant | Default | Purpose |
 |---|---|---|
@@ -163,12 +202,12 @@ All settings are constants at the top of `raspberryfluke.py`:
 | `SCREEN_ROTATION_INTERVAL_SECONDS` | `20` | Time on each screen |
 | `DIAG_POLL_INTERVAL_SECONDS` | `60` | How often ping/DNS checks run |
 | `MIN_DISPLAY_UPDATE_INTERVAL_SECONDS` | `10` | Minimum gap between redraws when the VLAN changes |
-| `PARTIAL_REFRESH_LIMIT` | `8` | Partial refreshes before a forced full refresh |
+| `PARTIAL_REFRESH_LIMIT` | `45` | Partial refreshes before a full (flashing) refresh to clear ghosting |
 
 After editing, restart the service:
 
 ```bash
-sudo systemctl restart raspberryfluke.service
+sudo systemctl restart piscout-av.service
 ```
 
 ---
@@ -179,7 +218,7 @@ sudo systemctl restart raspberryfluke.service
 |---|---|
 | Stuck on `Loading...` / `NO NEIGHBOR` | Run `sudo lldpctl`. If it shows nothing, the switch isn't sending LLDP/CDP on that port, or `lldpd` isn't running (`systemctl status lldpd`). |
 | `IP: N/A` on screen 1 | The switch isn't advertising a management address TLV. This is common and harmless. |
-| Blank screen, service crashing | Run `journalctl -u raspberryfluke.service -n 50`. Check that SPI is enabled (`ls /dev/spidev0.0`) and that the packages in step 2 are installed. |
+| Blank screen, service crashing | Run `journalctl -u piscout-av.service -n 50`. Check that SPI is enabled (`ls /dev/spidev0.0`) and that the packages in step 2 are installed. |
 | `MY IP: NO DHCP` | The port has no DHCP for this VLAN, or the cable/port is bad. |
 | `WAN: FAIL` but `DNS: PASS` | ICMP to 8.8.8.8 is blocked upstream. This is common on corporate networks. |
 
@@ -188,9 +227,9 @@ sudo systemctl restart raspberryfluke.service
 ## Project layout
 
 ```text
-raspberryfluke.py        main script (LLDP/CDP polling, diagnostics, display loop)
-raspberryfluke.service   systemd unit
-waveshare_epd/           Waveshare driver files needed for the 2.13" V3 panel
+piscout_av.py            main script (LLDP/CDP polling, diagnostics, display loop)
+piscout-av.service   systemd unit
+waveshare_epd/           Waveshare driver files needed for the 2.13" HAT+ (V4) panel
 Images/                  build photos from the original project
 CHANGELOG.md             what changed relative to upstream RaspberryFluke
 ```
@@ -199,11 +238,12 @@ CHANGELOG.md             what changed relative to upstream RaspberryFluke
 
 ## Roadmap
 
-- [ ] Fix the black/white flash when switching screens (use partial refresh for screen changes)
 - [ ] Verify a clean install on Raspberry Pi OS Lite
 - [ ] Show the voice VLAN and gateway ping again
-- [ ] Small web UI with more detail (full LLDP/CDP neighbor dump, history)
-- [ ] Rename the install path and service from `raspberryfluke` to `piscout-av`
+- [ ] Web UI on Wi-Fi and Ethernet: full neighbor details, diagnostics, Pi health, Save-to-log and Reset buttons
+- [ ] Wi-Fi hotspot fallback when no known Wi-Fi is in range (with an off switch)
+- [ ] Passive listeners: IGMP querier, STP root bridge, PTP grandmaster, mDNS/Dante devices
+- [ ] 3D-printed lid for the PoE-ETH-USB-HUB-BOX that clears the display
 
 ---
 

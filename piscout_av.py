@@ -5,13 +5,13 @@ import signal
 import logging
 import re
 from PIL import Image, ImageDraw, ImageFont
-from waveshare_epd import epd2in13_V3
+from waveshare_epd import epd2in13_V4
 
 # ============================================================
 # -------------------- CONFIGURATION -------------------------
 # ============================================================
 
-# Physical resolution of the Waveshare 2.13" V3 e-paper panel.
+# Physical resolution of the Waveshare 2.13" e-Paper HAT+ (V4) panel.
 DISPLAY_WIDTH = 250
 DISPLAY_HEIGHT = 122
 
@@ -28,7 +28,7 @@ LINE_SPACING = 2  # Extra pixels between lines.
 # Path to system font used for rendering text.
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-# The only wired interface on the RaspberryFluke.
+# The only wired interface on the PiScout-AV.
 IFACE = "eth0"
 
 # -------------------- Polling / Timing ----------------------
@@ -56,7 +56,13 @@ DIAG_POLL_INTERVAL_SECONDS = 60
 # -------------------- E-Paper Hygiene -----------------------
 
 # After this many partial refreshes, force a full refresh to prevent ghosting.
-PARTIAL_REFRESH_LIMIT = 8
+# A full refresh is the black/white flash, so keep this fairly high.
+# At one screen change every 20 s, 45 partials is roughly one flash per 15 minutes.
+PARTIAL_REFRESH_LIMIT = 45
+
+# Interval between loading-animation frames. These frames are not counted
+# toward PARTIAL_REFRESH_LIMIT; a full refresh happens when the first neighbor appears.
+DOT_INTERVAL_SECONDS = 0.75
 
 # ============================================================
 # -------------------- LOGGING -------------------------------
@@ -66,7 +72,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s"
 )
-log = logging.getLogger("raspberryfluke")
+log = logging.getLogger("piscout-av")
 
 # ============================================================
 # -------------------- FONT PRELOAD / CACHE ------------------
@@ -581,6 +587,49 @@ def handle_shutdown(signum, frame):
     data_event.set()
 
 # ============================================================
+# -------------------- E-PAPER PANEL -------------------------
+# ============================================================
+
+class Panel:
+    """
+    Keeps the e-paper panel awake between updates so screen changes can use
+    partial refresh (no flash). A full refresh (flash) only happens on first
+    draw, after PARTIAL_REFRESH_LIMIT partials, or if a partial fails.
+    """
+
+    def __init__(self):
+        self.epd = epd2in13_V4.EPD()
+        self.awake = False
+        self.partial_count = 0
+
+    def full(self, image):
+        if not self.awake:
+            self.epd.init()
+            self.awake = True
+        # Writes both controller RAM banks so later partials have a correct base.
+        self.epd.displayPartBaseImage(self.epd.getbuffer(image))
+        self.partial_count = 0
+
+    def show(self, image, count=True):
+        if not self.awake or self.partial_count >= PARTIAL_REFRESH_LIMIT:
+            self.full(image)
+            log.info("Display: full refresh.")
+            return
+        try:
+            self.epd.displayPartial(self.epd.getbuffer(image))
+            if count:
+                self.partial_count += 1
+        except Exception:
+            log.warning("Partial refresh failed; using full refresh.", exc_info=True)
+            self.awake = False
+            self.full(image)
+
+    def sleep(self):
+        if self.awake:
+            self.epd.sleep()
+            self.awake = False
+
+# ============================================================
 # -------------------- MAIN SERVICE LOOP ---------------------
 # ============================================================
 
@@ -588,14 +637,12 @@ def main():
     signal.signal(signal.SIGTERM, handle_shutdown)
     signal.signal(signal.SIGINT, handle_shutdown)
 
-    epd = epd2in13_V3.EPD()
-
-    partial_refresh_count = 0
-    last_display_update_mono = 0.0
+    panel = Panel()
 
     first_ready_displayed = False
     no_neighbor_displayed = False
     boot_start_mono = time.monotonic()
+    last_display_update_mono = 0.0
     last_displayed_vlan = None
     last_displayed_voice_vlan = None
 
@@ -606,14 +653,9 @@ def main():
     # Loading animation state.
     loading_dot_count = 0
     last_dot_update_mono = time.monotonic()
-    DOT_INTERVAL_SECONDS = 0.75
 
     try:
-        # Initial boot screen (full refresh).
-        epd.init()
-        epd.Clear(0xFF)
-        boot_img = render_loading(0)
-        epd.display(epd.getbuffer(boot_img))
+        panel.full(render_loading(0))
         log.info("Displayed boot screen (Loading)")
 
         threading.Thread(target=data_collector, daemon=True).start()
@@ -634,25 +676,14 @@ def main():
             # ---- LOADING PHASE ----
             if not first_ready_displayed:
 
-                # Animate loading dots.
-                if (now_mono - last_dot_update_mono) >= DOT_INTERVAL_SECONDS:
-                    loading_dot_count = (loading_dot_count + 1) % 4
-                    last_dot_update_mono = now_mono
-                    dot_img = render_loading(loading_dot_count)
-                    epd.displayPartial(epd.getbuffer(dot_img))
-
                 if is_data_ready(snap):
-                    epd.init()
-                    epd.Clear(0xFF)
-                    img = render_image(snap)
-                    epd.display(epd.getbuffer(img))
-                    epd.sleep()
+                    # One deliberate full refresh: a clean screen that also signals "found".
+                    panel.full(render_image(snap))
 
                     first_ready_displayed = True
                     no_neighbor_displayed = False
                     last_displayed_vlan = snap[3]
                     last_displayed_voice_vlan = snap[4]
-                    partial_refresh_count = 0
                     last_display_update_mono = now_mono
                     last_rotation_mono = now_mono
                     current_screen = 0
@@ -661,26 +692,24 @@ def main():
                     continue
 
                 if (not no_neighbor_displayed) and ((now_mono - boot_start_mono) >= NO_NEIGHBOR_TIMEOUT_SECONDS):
-                    epd.init()
-                    epd.Clear(0xFF)
-                    img = render_no_neighbor()
-                    epd.display(epd.getbuffer(img))
-                    epd.sleep()
-
+                    panel.show(render_no_neighbor())
                     no_neighbor_displayed = True
-                    partial_refresh_count = 0
                     last_display_update_mono = now_mono
-
                     log.warning("No neighbor after %ss; displayed NO NEIGHBOR screen.", NO_NEIGHBOR_TIMEOUT_SECONDS)
+                    continue
+
+                # Animate loading dots until a neighbor appears or we give up.
+                if (not no_neighbor_displayed) and (now_mono - last_dot_update_mono) >= DOT_INTERVAL_SECONDS:
+                    loading_dot_count = (loading_dot_count + 1) % 4
+                    last_dot_update_mono = now_mono
+                    panel.show(render_loading(loading_dot_count), count=False)
 
                 continue
 
             # ---- ROTATION PHASE (post first-neighbor) ----
 
-            # Check if it's time to rotate screens.
             time_to_rotate = (now_mono - last_rotation_mono) >= SCREEN_ROTATION_INTERVAL_SECONDS
 
-            # Also check if VLAN/VOICE changed (existing behaviour — only on screen 0).
             current_vlan = snap[3]
             current_voice = snap[4]
             vlan_changed = (last_displayed_vlan is not None and current_vlan != last_displayed_vlan)
@@ -688,28 +717,10 @@ def main():
             vlan_or_voice_changed = (vlan_changed or voice_changed) and is_data_ready(snap)
 
             if vlan_or_voice_changed:
-                # VLAN/VOICE change: update immediately on screen 0, respecting min interval.
+                # VLAN/VOICE change: jump to screen 0 immediately, respecting min interval.
                 if (now_mono - last_display_update_mono) >= MIN_DISPLAY_UPDATE_INTERVAL_SECONDS:
-                    epd.init()
-                    img = render_image(snap)
-
-                    if partial_refresh_count >= PARTIAL_REFRESH_LIMIT:
-                        epd.Clear(0xFF)
-                        epd.display(epd.getbuffer(img))
-                        partial_refresh_count = 0
-                        log.info("VLAN/VOICE change: full refresh.")
-                    else:
-                        try:
-                            epd.displayPartial(epd.getbuffer(img))
-                            partial_refresh_count += 1
-                            log.info("VLAN/VOICE change: partial refresh.")
-                        except Exception:
-                            epd.Clear(0xFF)
-                            epd.display(epd.getbuffer(img))
-                            partial_refresh_count = 0
-                            log.warning("Partial refresh failed; full refresh used.", exc_info=True)
-
-                    epd.sleep()
+                    panel.show(render_image(snap))
+                    log.info("VLAN/VOICE change: display updated.")
                     last_displayed_vlan = current_vlan
                     last_displayed_voice_vlan = current_voice
                     last_display_update_mono = now_mono
@@ -717,41 +728,29 @@ def main():
                     last_rotation_mono = now_mono
 
             elif time_to_rotate:
-                # Rotate to next screen.
                 current_screen = 1 - current_screen
                 last_rotation_mono = now_mono
-
-                epd.init()
 
                 if current_screen == 0:
                     img = render_image(snap)
                     log.info("Rotation: showing switch info screen.")
+                elif diag_snap is not None:
+                    img = render_diag(diag_snap)
+                    log.info("Rotation: showing diagnostics screen.")
                 else:
-                    if diag_snap is not None:
-                        img = render_diag(diag_snap)
-                        log.info("Rotation: showing diagnostics screen.")
-                    else:
-                        img = render_diag_pending()
-                        log.info("Rotation: showing diagnostics pending screen.")
+                    img = render_diag_pending()
+                    log.info("Rotation: showing diagnostics pending screen.")
 
-                epd.display(epd.getbuffer(img))
-                epd.sleep()
-                partial_refresh_count = 0
+                panel.show(img)
                 last_display_update_mono = now_mono
 
-        # Clean shutdown.
-        try:
-            epd.sleep()
-        except Exception:
-            pass
         log.info("Exited cleanly.")
 
-    except Exception:
+    finally:
         try:
-            epd.sleep()
+            panel.sleep()
         except Exception:
             pass
-        raise
 
 if __name__ == "__main__":
     main()
