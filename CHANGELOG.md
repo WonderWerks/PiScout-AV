@@ -2,6 +2,15 @@
 
 Changes in PiScout-AV relative to upstream [RaspberryFluke](https://github.com/MKWB/RaspberryFluke) at commit `d5c78db`.
 
+## 2026-11-03 – Diagnostics test the LAN only
+
+### Fixed
+- Diagnostics now test the wired LAN (`eth0`) only, so Wi-Fi can't answer for it:
+  - `GW:` comes from the DHCP lease on `eth0`, not the system's default route.
+  - The WAN and gateway pings use `ping -I eth0`.
+  - The DNS check sends one query for google.com to the LAN's own DHCP-assigned DNS server, out of `eth0`. Before, it used the system resolver, which could answer over Wi-Fi.
+- README step 4b: Ethernet's route metric is set to 700, so the Pi's own `apt` and `git` traffic prefers Wi-Fi.
+
 ## 2026-11-03 – Neighbor detection without a switch name
 
 ### Fixed

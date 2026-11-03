@@ -136,6 +136,20 @@ sudo systemctl restart lldpd
 
 `-r` means receive only (never transmit). `-c` enables CDP for Cisco switches.
 
+### 4b. Let the Pi's own internet traffic prefer Wi-Fi
+
+By default Ethernet wins, so on a LAN with no internet, `apt` and `git pull` fail even when Wi-Fi is connected. This raises Ethernet's route metric above Wi-Fi's (600). When Wi-Fi is down, Ethernet is still used.
+
+The on-screen diagnostics aren't affected: they always test through `eth0`.
+
+```bash
+sudo nmcli connection modify "$(nmcli -g GENERAL.CONNECTION device show eth0)" ipv4.route-metric 700 ipv6.route-metric 700
+```
+
+```bash
+sudo reboot
+```
+
 ### 5. Give the Pi read access to the repo (deploy key)
 
 Skip this step if the repo is public.
@@ -254,6 +268,7 @@ sudo systemctl restart piscout-av.service
 | Blank screen, service crashing | Run `journalctl -u piscout-av.service -n 50`. Check that SPI is enabled (`ls /dev/spidev0.0`) and that the packages in step 2 are installed. |
 | `MY IP: NO DHCP` | The port has no DHCP for this VLAN, or the cable/port is bad. |
 | `WAN: FAIL` but `DNS: PASS` | ICMP to 8.8.8.8 is blocked upstream. This is common on corporate networks. |
+| `apt`/`git pull` fail while Wi-Fi is connected | Ethernet is winning the default route on a LAN without internet. Do step 4b. |
 
 ---
 

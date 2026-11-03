@@ -1,3 +1,5 @@
+import os
+import socket
 import subprocess
 import time
 import threading
@@ -365,12 +367,26 @@ def get_pi_ip():
             return m.group(1)
     return "NO DHCP"
 
+IPV4_RE = re.compile(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b")
+
+def _nmcli_eth_field(field):
+    """
+    Read an IP4.* field for IFACE from NetworkManager (what DHCP handed out
+    on the LAN). Returns a list of IPv4 strings, possibly empty.
+    """
+    out = run(["nmcli", "-g", field, "device", "show", IFACE])
+    return IPV4_RE.findall(out) if out else []
+
 def get_default_gateway():
     """
-    Extract the default gateway IP from the routing table.
+    Get the LAN gateway for IFACE (not Wi-Fi), from the DHCP lease first,
+    then from a default route on IFACE.
     Returns IP string or None.
     """
-    out = run(["ip", "route", "show", "default"])
+    gws = _nmcli_eth_field("IP4.GATEWAY")
+    if gws:
+        return gws[0]
+    out = run(["ip", "route", "show", "default", "dev", IFACE])
     if out:
         m = re.search(r"default via (\d+\.\d+\.\d+\.\d+)", out)
         if m:
@@ -379,12 +395,13 @@ def get_default_gateway():
 
 def ping_host(host):
     """
-    Ping a host once with a 2-second timeout.
+    Ping a host once out of IFACE only, with a 2-second timeout.
+    Binding to IFACE keeps Wi-Fi from answering for the LAN.
     Returns True if reachable, False otherwise.
     """
     try:
         result = subprocess.run(
-            ["ping", "-c", "1", "-W", "2", host],
+            ["ping", "-I", IFACE, "-c", "1", "-W", "2", host],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=5,
@@ -393,21 +410,43 @@ def ping_host(host):
     except Exception:
         return False
 
+def _dns_query_a(server, name, timeout=3):
+    """
+    Send one DNS A-record query for name to server, out of IFACE only.
+    Returns True if the server answers with at least one record.
+    """
+    qid = os.urandom(2)
+    # Header: id, flags (recursion desired), 1 question, 0 answer/authority/additional.
+    header = qid + bytes([0x01, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+    qname = b"".join(bytes([len(p)]) + p.encode() for p in name.split(".")) + bytes([0])
+    packet = header + qname + bytes([0x00, 0x01, 0x00, 0x01])  # type A, class IN
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, getattr(socket, "SO_BINDTODEVICE", 25), IFACE.encode())
+        sock.settimeout(timeout)
+        sock.sendto(packet, (server, 53))
+        resp, _ = sock.recvfrom(512)
+
+    if len(resp) < 12 or resp[:2] != qid:
+        return False
+    rcode = resp[3] & 0x0F
+    answers = int.from_bytes(resp[6:8], "big")
+    return rcode == 0 and answers > 0
+
 def check_dns():
     """
-    Attempt to resolve google.com.
-    Returns True if DNS resolves, False otherwise.
+    Resolve google.com using the LAN's own DNS servers (from DHCP on IFACE),
+    sent out of IFACE only. The system resolver is not used because it may
+    answer over Wi-Fi.
+    Returns True if any LAN DNS server resolves it, False otherwise.
     """
-    try:
-        result = subprocess.run(
-            ["getent", "hosts", "google.com"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
+    for server in _nmcli_eth_field("IP4.DNS"):
+        try:
+            if _dns_query_a(server, "google.com"):
+                return True
+        except Exception:
+            continue
+    return False
 
 def collect_diagnostics(switch_mac):
     """
