@@ -201,6 +201,7 @@ The settings are at the top of `piscout_av.py`. Restart the service after changi
 | `WAN: FAIL` but `DNS: PASS` | Ping is blocked upstream. This is common on corporate networks. |
 | Blank screen | Run `journalctl -u piscout-av.service -n 50`. Check that SPI is on (`ls /dev/spidev0.0`). |
 | `apt` / `git pull` fail with Wi-Fi connected | Run the route-metric command in step 2, then reboot. |
+| `ssh` says `REMOTE HOST IDENTIFICATION HAS CHANGED` after reflashing | Expected: the new install has a new host key. Run `ssh-keygen -R <host-or-IP>` on your PC, then connect again. |
 | Wi-Fi didn't reconnect after a reboot | Phone hotspots often sleep. Wake the hotspot, then run `sudo nmcli connection up "<your-SSID>"`. |
 
 **Add Wi-Fi after flashing.** Change `US` to your country code. The last command asks for the Wi-Fi password.
