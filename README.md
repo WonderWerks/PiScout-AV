@@ -1,8 +1,8 @@
 # PiScout-AV
 
-A pocket network port identifier for AV technicians. Plug it into a wall jack or switch port and the e-paper screen shows which switch and port you're on, the VLAN, and whether that network can reach the internet. That's the "is this drop live and on the right VLAN?" question you ask before blaming the DSP, codec or control processor.
+A pocket network port identifier for AV/IT technicians. Plug it into a wall jack or switch port and the e-paper screen shows which switch and port you're on, the VLAN, and whether that network can reach the internet. Useful when trying to enumerate a client network or troubleshoot an existing system.
 
-It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's powered by PoE or a USB power bank.
+It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display and is powered by PoE or a USB power bank.
 
 > **Fork notice:** PiScout-AV is a modified version of **[RaspberryFluke](https://github.com/MKWB/RaspberryFluke)** by MKWB, which is MIT-licensed. The same author's newer project is **[PiScout](https://github.com/MKWB/PiScout)**. The original commit history is kept in this repo. See [Credits & licenses](#credits--licenses).
 
@@ -33,8 +33,8 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's 
 **Everything on the screen describes the wired port.** Even when the unit is also on Wi-Fi, the checks are forced out of `eth0`, so Wi-Fi can never make a dead port look healthy.
 
 **Behavior:**
-- Boot splash, **HAVE YOU TRIED TURNING IT OFF AND ON AGAIN?**, for 5 s. Then an animated `Loading...` screen while it waits for the switch. It shows `NO NEIGHBOR` if nothing is heard within 3 minutes.
-- Switches between the two screens every 20 s. Screen changes don't flash; a full refresh happens about every 15 minutes to clear ghosting.
+- Boot splash screen for 5 s. Then an animated `Loading...` screen while it waits for the switch. It shows `NO NEIGHBOR` if nothing is heard within 3 minutes.
+- Switches between the two screens every 20 s. Screen changes don't flash; a full refresh happens about every 15 minutes (or when pulled and plugged into a new port) to clear ghosting.
 - **Listen-only:** it never sends LLDP/CDP. The only traffic it creates is normal DHCP, ping and DNS.
 - Starts at boot as a hardened systemd service.
 
@@ -82,7 +82,7 @@ If `.local` doesn't resolve, use the Pi's IP address. Forgot Wi-Fi? See [Trouble
 
 ### 2. Get online
 
-If the wired port is plugged into a network without internet, the Pi tries to reach the internet through it and fails, even with Wi-Fi connected. This tells the Pi to prefer Wi-Fi for its own traffic (updates, downloads). The on-screen checks still test the wired port.
+If the wired port is plugged into a network without internet, the Pi tries to reach the internet through it and fails, even with Wi-Fi connected. This tells the Pi to prefer Wi-Fi for its own traffic (updates, downloads). The on-screen checks only test the wired port.
 
 ```bash
 sudo nmcli connection modify "$(nmcli -g GENERAL.CONNECTION device show eth0)" ipv4.route-metric 700 ipv6.route-metric 700
@@ -92,7 +92,7 @@ sudo nmcli connection modify "$(nmcli -g GENERAL.CONNECTION device show eth0)" i
 sudo reboot
 ```
 
-Reconnect, then check the Pi can reach the internet and that its clock is right:
+Reconnect, then check the Pi can reach the internet and that its clock is correct:
 
 ```bash
 ping -c 2 deb.debian.org; timedatectl | grep -E 'Local|synchronized'
@@ -240,7 +240,7 @@ CHANGELOG.md          changes relative to upstream RaspberryFluke
 ## Future ideas
 
 Not planned on a schedule:
-- 3D-printed lid for the PoE-ETH-USB-HUB-BOX that clears the display
+- 3D-printed lid for the PoE-ETH-USB-HUB-BOX that adapts to the display
 - Web UI over Wi-Fi and Ethernet: full neighbor details, Pi health, Save-to-log and Reset buttons
 - Wi-Fi hotspot fallback when no known Wi-Fi is in range, with an off switch
 - Passive listeners: IGMP querier, STP root bridge, PTP grandmaster, mDNS/Dante devices
