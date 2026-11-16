@@ -2,6 +2,12 @@
 
 Changes in PiScout-AV relative to upstream [RaspberryFluke](https://github.com/MKWB/RaspberryFluke) at commit `d5c78db`.
 
+## 2026-11-16 – Share-ready README
+
+### Changed
+- `GW:` shows `OK`/`FAIL` for the gateway ping, not `PASS`/`FAIL`.
+- README: materials list with Waveshare SKUs and links, plus what else you need. The roadmap is now "Future ideas".
+
 ## 2026-11-03 – Boot splash, voice VLAN and gateway ping on screen
 
 ### Added

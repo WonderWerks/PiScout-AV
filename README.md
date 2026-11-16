@@ -26,7 +26,7 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's 
 |---|---|
 | `SW MAC:` | Switch chassis MAC |
 | `MY IP:` | The unit's DHCP address on the wired port, or `NO DHCP` |
-| `GW:` | The wired network's gateway, with `PASS`/`FAIL` for a ping to it |
+| `GW:` | The wired network's gateway, with `OK`/`FAIL` for a ping to it |
 | `WAN:` | `PASS`/`FAIL`: ping to 8.8.8.8 |
 | `DNS:` | `PASS`/`FAIL`: resolves google.com using the wired network's own DNS server |
 
@@ -40,14 +40,21 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display. It's 
 
 ---
 
-## Hardware
+## Materials
 
-| Part | Notes |
-|---|---|
-| Raspberry Pi Zero 2 W | With a 40-pin male GPIO header soldered on |
-| Waveshare **2.13" e-Paper HAT+** (V4) | Check the version sticker on the back. The code uses the V4 driver. |
-| Waveshare **PoE-ETH-USB-HUB-BOX** | Case plus a PoE/Ethernet hub for the Pi Zero. The stock lid doesn't fit over the display. |
-| microSD card | 8 GB or larger |
+| Qty | Part | Source / SKU | Notes |
+|---|---|---|---|
+| 1 | Raspberry Pi Zero 2 W **with 40-pin header** | Any Raspberry Pi reseller | The display plugs into the GPIO header. Buy a version with the header already soldered on, or solder a 2×20 male header yourself. |
+| 1 | Waveshare **2.13" e-Paper HAT+** (250×122) | [Waveshare SKU 27467](https://www.waveshare.com/2.13inch-e-paper-hat-plus.htm) | Uses the V4 driver; the version sticker is on the back. |
+| 1 | Waveshare **PoE Ethernet / USB HUB BOX** | [Waveshare SKU 20895](https://www.waveshare.com/product/raspberry-pi/boards-kits/raspberry-pi-zero-2-w-cat/poe-eth-usb-hub-box.htm) | ABS case plus a hub board that connects to the Pi by pogo pins. Adds 802.3af PoE, Ethernet and 3× USB. Pi not included. The stock lid doesn't fit over the display. |
+| 1 | microSD card, 8 GB or larger | Any | |
+
+**You'll also need:**
+- A PC with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) and a microSD card reader.
+- An **802.3af PoE** switch port or PoE injector. For bench use, a USB power supply into the Pi works instead.
+- A 2.4 GHz Wi-Fi network or phone hotspot with internet access during setup.
+
+
 
 ---
 
@@ -205,18 +212,19 @@ sudo date -s "$(curl -sI http://deb.debian.org | grep -i '^date:' | cut -d' ' -f
 piscout_av.py         main script: LLDP/CDP polling, diagnostics, display
 piscout-av.service    systemd unit
 waveshare_epd/        Waveshare driver files for the 2.13" HAT+ (V4)
-Images/               build photos from the original project
+Images/               build photos from the original RaspberryFluke project
 CHANGELOG.md          changes relative to upstream RaspberryFluke
 ```
 
 ---
 
-## Roadmap
+## Future ideas
 
-- [ ] Web UI over Wi-Fi and Ethernet: full neighbor details, diagnostics, Pi health, Save-to-log and Reset buttons
-- [ ] Wi-Fi hotspot fallback when no known Wi-Fi is in range, with an off switch
-- [ ] Passive listeners: IGMP querier, STP root bridge, PTP grandmaster, mDNS/Dante devices
-- [ ] 3D-printed lid for the PoE-ETH-USB-HUB-BOX that clears the display
+Not planned on a schedule:
+- 3D-printed lid for the PoE-ETH-USB-HUB-BOX that clears the display
+- Web UI over Wi-Fi and Ethernet: full neighbor details, Pi health, Save-to-log and Reset buttons
+- Wi-Fi hotspot fallback when no known Wi-Fi is in range, with an off switch
+- Passive listeners: IGMP querier, STP root bridge, PTP grandmaster, mDNS/Dante devices
 
 ---
 

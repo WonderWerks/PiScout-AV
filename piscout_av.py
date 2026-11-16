@@ -611,7 +611,7 @@ def render_diag(diag):
     if gw_ip == "N/A":
         gw_label = "GW: N/A"
     else:
-        gw_label = f"GW: {gw_ip} {'PASS' if gw_ping_ok else 'FAIL'}"
+        gw_label = f"GW: {gw_ip} {'OK' if gw_ping_ok else 'FAIL'}"
 
     lines = [
         f"SW MAC: {switch_mac}",
