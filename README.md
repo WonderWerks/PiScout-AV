@@ -80,7 +80,28 @@ ssh <user>@piscout-av.local
 
 If `.local` doesn't resolve, use the Pi's IP address. Forgot Wi-Fi? See [Troubleshooting](#troubleshooting).
 
-### 2. Install packages
+### 2. Get online
+
+If the wired port is plugged into a network without internet, the Pi tries to reach the internet through it and fails, even with Wi-Fi connected. This tells the Pi to prefer Wi-Fi for its own traffic (updates, downloads). The on-screen checks still test the wired port.
+
+```bash
+sudo nmcli connection modify "$(nmcli -g GENERAL.CONNECTION device show eth0)" ipv4.route-metric 700 ipv6.route-metric 700
+```
+
+```bash
+sudo reboot
+```
+
+Reconnect, then check the Pi can reach the internet and that its clock is right:
+
+```bash
+ping -c 2 deb.debian.org; timedatectl | grep -E 'Local|synchronized'
+```
+
+- If the ping fails, Wi-Fi isn't connected. See [Troubleshooting](#troubleshooting).
+- If the date is wrong, fix the clock now (see [Troubleshooting](#troubleshooting)). Otherwise `apt` fails with `Not live until ...`.
+
+### 3. Install packages
 
 ```bash
 sudo apt update && sudo apt full-upgrade -y
@@ -90,9 +111,7 @@ sudo apt update && sudo apt full-upgrade -y
 sudo apt install -y git lldpd python3 python3-pil python3-spidev python3-gpiozero python3-lgpio fonts-dejavu-core
 ```
 
-If `apt` complains `Not live until ...`, the Pi's clock is wrong. See [Troubleshooting](#troubleshooting).
-
-### 3. Configure the Pi
+### 4. Configure the display and lldpd
 
 Enable SPI, which the display needs:
 
@@ -106,17 +125,17 @@ Make lldpd listen-only (`-r`) and accept CDP (`-c`):
 echo 'DAEMON_ARGS="-r -c"' | sudo tee /etc/default/lldpd
 ```
 
-Let the Pi's own internet traffic (updates) prefer Wi-Fi over the wired port. The on-screen checks still test the wired port.
+Check the file reads back as exactly `DAEMON_ARGS="-r -c"`. Without it, the unit transmits LLDP on the network and ignores CDP.
 
 ```bash
-sudo nmcli connection modify "$(nmcli -g GENERAL.CONNECTION device show eth0)" ipv4.route-metric 700 ipv6.route-metric 700
+cat /etc/default/lldpd
 ```
 
 ```bash
 sudo reboot
 ```
 
-### 4. Install PiScout-AV
+### 5. Install PiScout-AV
 
 ```bash
 sudo mkdir -p /opt/piscout-av && sudo chown $USER: /opt/piscout-av
@@ -130,7 +149,7 @@ git clone https://github.com/WonderWerks/PiScout-AV.git /opt/piscout-av
 sudo cp /opt/piscout-av/piscout-av.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now piscout-av.service
 ```
 
-### 5. Check it's running
+### 6. Check it's running
 
 Plug the wired port into a switch, then watch the log:
 
@@ -175,13 +194,13 @@ The settings are at the top of `piscout_av.py`. Restart the service after changi
 
 | Symptom | Fix |
 |---|---|
-| Stuck on `Loading...` / `NO NEIGHBOR` | Run `sudo lldpctl`. If it shows nothing, the switch isn't sending LLDP/CDP on that port. If it shows a neighbor, check that `/etc/default/lldpd` contains `DAEMON_ARGS="-r -c"` (step 3). |
+| Stuck on `Loading...` / `NO NEIGHBOR` | Run `sudo lldpctl`. If it shows nothing, the switch isn't sending LLDP/CDP on that port. If it shows a neighbor, check that `/etc/default/lldpd` contains `DAEMON_ARGS="-r -c"` (step 4). |
 | `SW: N/A` but other lines are filled | The switch has no system name set. Name it in the switch's settings. |
 | `IP: N/A` on screen 1 | The switch doesn't advertise a management address. This is harmless. |
 | `MY IP: NO DHCP` | No DHCP on this port or VLAN, or a bad cable or port. |
 | `WAN: FAIL` but `DNS: PASS` | Ping is blocked upstream. This is common on corporate networks. |
 | Blank screen | Run `journalctl -u piscout-av.service -n 50`. Check that SPI is on (`ls /dev/spidev0.0`). |
-| `apt` / `git pull` fail with Wi-Fi connected | Run the route-metric command in step 3, then reboot. |
+| `apt` / `git pull` fail with Wi-Fi connected | Run the route-metric command in step 2, then reboot. |
 | Wi-Fi didn't reconnect after a reboot | Phone hotspots often sleep. Wake the hotspot, then run `sudo nmcli connection up "<your-SSID>"`. |
 
 **Add Wi-Fi after flashing.** Change `US` to your country code. The last command asks for the Wi-Fi password.

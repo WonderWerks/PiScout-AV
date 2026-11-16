@@ -7,6 +7,7 @@ Changes in PiScout-AV relative to upstream [RaspberryFluke](https://github.com/M
 ### Changed
 - `GW:` shows `OK`/`FAIL` for the gateway ping, not `PASS`/`FAIL`.
 - README: materials list with Waveshare SKUs and links, plus what else you need. The roadmap is now "Future ideas".
+- README install reordered to match the first real build. A new step 2, **Get online**, sets the route metric, then checks internet and the clock *before* `apt`. That's the order the first build actually needed. Step 4 now checks that the lldpd file reads back correctly.
 
 ## 2026-11-03 – Boot splash, voice VLAN and gateway ping on screen
 
