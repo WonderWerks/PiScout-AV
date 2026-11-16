@@ -68,7 +68,7 @@ In **Raspberry Pi Imager**, choose *Raspberry Pi Zero 2 W* → *Raspberry Pi OS 
 - **Hostname:** `piscout-av`
 - **Username and password**
 - **Enable SSH**
-- **Wi-Fi and Wi-Fi country.** The Pi downloads packages and code during setup. Wi-Fi is the easiest way to get it online, and it's handy later for managing the unit while the wired port is in use.
+- **Wi-Fi: enter your network name (SSID), its password, and your Wi-Fi country.** Don't skip this. The Pi downloads packages and code during setup, and Wi-Fi is how it gets online. It's also handy later for managing the unit while the wired port is in use.
 
 > The Pi Zero 2 W is **2.4 GHz only**. If you use a phone hotspot, set it to 2.4 GHz. On an iPhone, turn on *Maximize Compatibility*.
 
@@ -244,6 +244,12 @@ Not planned on a schedule:
 - Web UI over Wi-Fi and Ethernet: full neighbor details, Pi health, Save-to-log and Reset buttons
 - Wi-Fi hotspot fallback when no known Wi-Fi is in range, with an off switch
 - Passive listeners: IGMP querier, STP root bridge, PTP grandmaster, mDNS/Dante devices
+
+---
+
+## Maintenance
+
+This is a hobby project, maintained in spare time and provided as-is. Issues and pull requests are welcome but may take a while to get a reply. **Forking is encouraged:** if you want to take it in your own direction, go for it.
 
 ---
 
