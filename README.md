@@ -34,7 +34,7 @@ It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display and is
 
 **Behavior:**
 - Boot splash screen for 5 s. Then an animated `Loading...` screen while it waits for the switch. It shows `NO NEIGHBOR` if nothing is heard within 3 minutes.
-- Switches between the two screens every 20 s. Screen changes don't flash; a full refresh happens about every 15 minutes (or when pulled and plugged into a new port) to clear ghosting.
+- Switches between the two screens every 20 s. Screen changes don't flash; a full refresh happens about every 15 minutes to clear ghosting.
 - **Listen-only:** it never sends LLDP/CDP. The only traffic it creates is normal DHCP, ping and DNS.
 - Starts at boot as a hardened systemd service.
 
@@ -196,9 +196,9 @@ The settings are at the top of `piscout_av.py`. Restart the service after changi
 |---|---|
 | Stuck on `Loading...` / `NO NEIGHBOR` | Run `sudo lldpctl`. If it shows nothing, the switch isn't sending LLDP/CDP on that port. If it shows a neighbor, check that `/etc/default/lldpd` contains `DAEMON_ARGS="-r -c"` (step 4). |
 | `SW: N/A` but other lines are filled | The switch has no system name set. Name it in the switch's settings. |
-| `IP: N/A` on screen 1 | The switch doesn't advertise a management address. This is harmless. |
+| `IP: N/A` on screen 1 | The switch doesn't advertise a management address. |
 | `MY IP: NO DHCP` | No DHCP on this port or VLAN, or a bad cable or port. |
-| `WAN: FAIL` but `DNS: PASS` | Ping is blocked upstream. This is common on corporate networks. |
+| `WAN: FAIL` but `DNS: PASS` | Ping is blocked upstream. |
 | Blank screen | Run `journalctl -u piscout-av.service -n 50`. Check that SPI is on (`ls /dev/spidev0.0`). |
 | `apt` / `git pull` fail with Wi-Fi connected | Run the route-metric command in step 2, then reboot. |
 | `ssh` says `REMOTE HOST IDENTIFICATION HAS CHANGED` after reflashing | Expected: the new install has a new host key. Run `ssh-keygen -R <host-or-IP>` on your PC, then connect again. |
