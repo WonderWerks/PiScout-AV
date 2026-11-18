@@ -2,7 +2,7 @@
 
 # PiScout-AV
 
-A pocket network port identifier for AV/IT technicians. Plug it into a wall jack or switch port and the e-paper screen shows which switch and port you're on, the VLAN, and whether that network can reach the internet. Useful when trying to enumerate a client network or troubleshoot an existing system.
+A pocket port identifier for AV/IT technicians. Plug it into a wall jack or switch port and the e-paper screen shows which switch and port you're on, the VLAN, and whether that network can reach the internet. Useful when trying to enumerate a network or troubleshoot an existing system.
 
 It runs on a Raspberry Pi Zero 2 W with a Waveshare 2.13" e-paper display and is powered by PoE or a USB power bank.
 
