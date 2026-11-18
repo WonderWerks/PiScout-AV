@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/piscout-1.jpeg" width="32%"> <img src="assets/piscout-2.jpeg" width="32%"> <img src="assets/piscout-3.jpeg" width="32%"></p>
+
 # PiScout-AV
 
 A pocket network port identifier for AV/IT technicians. Plug it into a wall jack or switch port and the e-paper screen shows which switch and port you're on, the VLAN, and whether that network can reach the internet. Useful when trying to enumerate a client network or troubleshoot an existing system.
